@@ -1,0 +1,7 @@
+Pillow>=9.0.0
+tqdm>=4.64.0
+paddlepaddle>=2.4.0
+paddleocr>=2.6.0
+alibabacloud-ocr-api20210707>=2.0.0
+alibabacloud-tea-openapi>=0.3.0
+alibabacloud-tea-util>=0.3.0 
