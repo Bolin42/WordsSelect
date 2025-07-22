@@ -4,6 +4,7 @@ import random
 import argparse
 from docx import Document
 from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT
+import os
 
 def fetch_words(db_path, table, count):
     conn = sqlite3.connect(db_path)
@@ -67,11 +68,11 @@ def generate_docx(words, mode, output_path, shuffled_words=None, answer_mode=Fal
         hdr_cells[3].text = '中文+提示'
     for cell in hdr_cells:
         cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
-
+    
     if shuffled_words is None:
         shuffled_words = list(words)
         random.shuffle(shuffled_words)
-
+    
     for item in shuffled_words:
         idx = item[0] if len(item) > 0 else ''
         eng = item[1] if len(item) > 1 else ''
@@ -104,7 +105,7 @@ def generate_docx(words, mode, output_path, shuffled_words=None, answer_mode=Fal
             row_cells[3].text = chn_text
         for cell in row_cells:
             cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
-
+    
     doc.save(output_path)
     if answer_mode:
         print(f"已生成答案表：{output_path}")
@@ -128,21 +129,24 @@ if __name__ == '__main__':
     for letter in args.letter:
         table = letter.lower()
         words = fetch_words(db_path, table, args.count)
-        if not words:
-            print(f"未找到任何数据，请检查表名和数据库内容。({table})")
-            continue
+    if not words:
+        print(f"未找到任何数据，请检查表名和数据库内容。({table})")
         # 自动生成输出文件名
-        outputs = args.output if args.output and len(args.output) == len(args.mode) else [f"{table}_{mode}.docx" for mode in args.mode]
-        if len(outputs) != len(args.mode):
-            print(f"错误：mode参数数量({len(args.mode)})与output参数数量({len(outputs)})不匹配")
-            continue
+    outputs = args.output if args.output and len(args.output) == len(args.mode) else [f"{table}_{mode}.docx" for mode in args.mode]
+    if len(outputs) != len(args.mode):
+        print(f"错误：mode参数数量({len(args.mode)})与output参数数量({len(outputs)})不匹配")
         # 每个首字母独立随机序列
-        shuffled_words = list(words)
-        random.shuffle(shuffled_words)
-        for i, (mode, output) in enumerate(zip(args.mode, outputs)):
-            print(f"\n生成{table}第{i+1}个文件：模式={mode}, 输出={output}")
-            generate_docx(words, mode, output, shuffled_words)
+    shuffled_words = list(words)
+    random.shuffle(shuffled_words)
+        # 确保PracticeFile文件夹存在
+    out_dir = "PracticeFile"
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+    for i, (mode, output) in enumerate(zip(args.mode, outputs)):
+        out_path = os.path.join(out_dir, output)
+        print(f"\n生成{table}第{i+1}个文件：模式={mode}, 输出={out_path}")
+        generate_docx(words, mode, out_path, shuffled_words)
         # 生成key答案文件
-        key_output = f"{table}_key.docx"
-        print(f"\n生成答案文件：{key_output}")
-        generate_docx(words, 'both', key_output, shuffled_words, answer_mode=True) 
+    key_output = os.path.join(out_dir, f"{table}_key.docx")
+    print(f"\n生成答案文件：{key_output}")
+    generate_docx(words, 'both', key_output, shuffled_words, answer_mode=True) 
