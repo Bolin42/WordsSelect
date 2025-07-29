@@ -18,7 +18,6 @@ WordsSelect 是一个集图片批量处理、OCR识别、单词结构化提取�
 - **结构化导出**：支持Excel、SQLite数据库等多种格式
 - **练习表生成**：自动生成美观的单词练习表和答案表
 - **全流程自动化**：从图片到练习表一站式解决方案
-=======
 ---
 
 ## 🌟 项目简介
@@ -42,10 +41,7 @@ WordsSelect/
 ├── ocr_alicloud.py          # 阿里云OCR批量识别
 ├── formatter.py             # JSON转txt格式化
 ├── extract_words.py         # 复杂单词提取
-<<<<<<< HEAD
 ├── ai_processor.py          # AI智能处理
-=======
->>>>>>> 8e7781ddd5932940ce6300496ab4a8827ce32409
 ├── txt_to_excel_and_db.py   # txt批量导出Excel/DB
 ├── word_practice.py         # 单词练习表生成
 ├── recover.py               # AI自动修正单词表
@@ -334,4 +330,3 @@ python word_practice.py --db words.db --letter a --count 20 --mode chinese --out
 ---
 
 > 如有问题或建议，欢迎提Issue或PR！ 
->>>>>>> 8e7781ddd5932940ce6300496ab4a8827ce32409
