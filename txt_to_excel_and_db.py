@@ -42,11 +42,59 @@ def remove_brackets_cross_lines(text):
     result.append(text[last:])
     return ''.join(result)
 
+<<<<<<< HEAD
+def clean_text_keep_punct(text):
+    # 保留中英文的'.'和','，去除其他特殊字符
+    import re
+    # 允许的标点：英文. , 中文。 ，
+    allowed = set('.，。,')
+    # 替换为只保留字母、数字、汉字、空格和上述标点
+    return ''.join(c for c in text if c.isalnum() or c.isspace() or c in allowed or '\u4e00' <= c <= '\u9fff')
+
+def remove_inline_slash_content(line):
+    # 丢弃英文部分的'/'与'/'之间内容，不跨行
+    import re
+    # 只处理一行内的/xxx/，不跨行
+    # 例如：life-jacket /abc/ n. 救生衣 -> life-jacket  n. 救生衣
+    return re.sub(r'/[^/\n]*/', '', line)
+
+
+=======
+>>>>>>> 8e7781ddd5932940ce6300496ab4a8827ce32409
 def parse_line(line):
     # 支持一行多词性多中文解释的精确拆分，返回多行结构
     line = line.strip()
     if not line:
         return []
+<<<<<<< HEAD
+    # 先丢弃英文部分的/xxx/，不跨行
+    line = remove_inline_slash_content(line)
+    import re
+    pos_pattern = r'(' + '|'.join([re.escape(p) for p in POS_LIST]) + r')'
+    pos_matches = list(re.finditer(pos_pattern, line))
+    results = []
+    if pos_matches:
+        # 原始英文部分为第一个词性前的内容
+        first_pos_start = pos_matches[0].start(1)
+        eng = line[:first_pos_start].strip()
+        eng_clean = clean_text_keep_punct(eng) if eng else ''
+        for i, m in enumerate(pos_matches):
+            pos = m.group(1)
+            pos_end = m.end(1)
+            next_pos_start = pos_matches[i+1].start(1) if i+1 < len(pos_matches) else len(line)
+            chn = line[pos_end:next_pos_start].strip()
+            chn_clean = clean_text_keep_punct(chn) if chn else ''
+            results.append({'english': eng_clean, 'pos': pos, 'chinese': chn_clean})
+    else:
+        # 没有词性，直接找中文
+        chn_match = re.search(r'[\u4e00-\u9fff].*', line)
+        chn = chn_match.group(0).strip() if chn_match else None
+        eng_match = re.match(r'^([A-Za-z][A-Za-z\-\.\s\"]*)', line)
+        eng = eng_match.group(1).strip() if eng_match else None
+        eng_clean = clean_text_keep_punct(eng) if eng else ''
+        chn_clean = clean_text_keep_punct(chn) if chn else ''
+        results.append({'english': eng_clean, 'pos': '', 'chinese': chn_clean})
+=======
     # 英文部分
     eng_match = re.match(r'^([A-Za-z][A-Za-z\s\-\"]*)', line)
     eng = eng_match.group(1).strip() if eng_match else None
@@ -66,6 +114,7 @@ def parse_line(line):
         chn_match = re.search(r'[\u4e00-\u9fff].*', rest)
         chn = chn_match.group(0).strip() if chn_match else None
         results.append({'english': eng, 'pos': '', 'chinese': chn})
+>>>>>>> 8e7781ddd5932940ce6300496ab4a8827ce32409
     return results
 
 def process_txt(input_path):
