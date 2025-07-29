@@ -42,6 +42,7 @@ def remove_brackets_cross_lines(text):
     result.append(text[last:])
     return ''.join(result)
 
+<<<<<<< HEAD
 def clean_text_keep_punct(text):
     # 保留中英文的'.'和','，去除其他特殊字符
     import re
@@ -58,11 +59,14 @@ def remove_inline_slash_content(line):
     return re.sub(r'/[^/\n]*/', '', line)
 
 
+=======
+>>>>>>> 8e7781ddd5932940ce6300496ab4a8827ce32409
 def parse_line(line):
     # 支持一行多词性多中文解释的精确拆分，返回多行结构
     line = line.strip()
     if not line:
         return []
+<<<<<<< HEAD
     # 先丢弃英文部分的/xxx/，不跨行
     line = remove_inline_slash_content(line)
     import re
@@ -90,6 +94,27 @@ def parse_line(line):
         eng_clean = clean_text_keep_punct(eng) if eng else ''
         chn_clean = clean_text_keep_punct(chn) if chn else ''
         results.append({'english': eng_clean, 'pos': '', 'chinese': chn_clean})
+=======
+    # 英文部分
+    eng_match = re.match(r'^([A-Za-z][A-Za-z\s\-\"]*)', line)
+    eng = eng_match.group(1).strip() if eng_match else None
+    # 词性+中文解释部分
+    rest = line[len(eng):] if eng else line
+    # 匹配所有“词性. 中文”片段
+    pos_chn_pattern = re.compile(r'((?:' + '|'.join([re.escape(p) for p in POS_LIST]) + r'))\s*([\u4e00-\u9fff][^' + ''.join([re.escape(p) for p in POS_LIST]) + r']*)')
+    matches = list(pos_chn_pattern.finditer(rest))
+    results = []
+    if matches:
+        for m in matches:
+            pos = m.group(1).strip()
+            chn = m.group(2).strip()
+            results.append({'english': eng, 'pos': pos, 'chinese': chn})
+    else:
+        # 没有词性，直接找中文
+        chn_match = re.search(r'[\u4e00-\u9fff].*', rest)
+        chn = chn_match.group(0).strip() if chn_match else None
+        results.append({'english': eng, 'pos': '', 'chinese': chn})
+>>>>>>> 8e7781ddd5932940ce6300496ab4a8827ce32409
     return results
 
 def process_txt(input_path):

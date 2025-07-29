@@ -8,6 +8,11 @@ result/*
 *.db
 *.xlsx
 *.docx
+<<<<<<< HEAD
 *.txt
 __pycache__
 __pycache__/formatter.cpython-313.pyc
+=======
+txt/
+__pycache__
+>>>>>>> 8e7781ddd5932940ce6300496ab4a8827ce32409

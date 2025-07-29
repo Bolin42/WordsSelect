@@ -7,6 +7,7 @@ AI处理器 - 专门处理AI相关功能
 import os
 import time
 import requests
+import logging
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn
 from rich.prompt import Prompt, Confirm
@@ -14,6 +15,13 @@ import dotenv
 
 # 加载环境变量
 dotenv.load_dotenv()
+
+# 配置日志
+logging.basicConfig(
+    filename='ai_processing_errors.log',
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 
 # 从.env文件读取API密钥
 SILICONFLOW_API_KEY = os.getenv("SILICONFLOW_API_KEY")
@@ -58,6 +66,10 @@ def print_warning(message):
 def print_error(message):
     """打印错误信息"""
     console.print(f"❌ {message}")
+
+def log_error(message):
+    """记录错误日志"""
+    logging.info(message)
 
 def check_model_status(api_key, model):
     """检查模型状态"""
@@ -149,9 +161,9 @@ def split_file_by_size(file_path, chunk_size=2*1024):
         print_error(f"分割文件失败: {e}")
         return []
 
-def call_qwen_api(content, api_key, model="Qwen/QwQ-32B", available_models=None):
+def call_qwen_api(content, api_key, model="Qwen/QwQ-32B", available_models=None, is_error_processing=False):
     """调用硅基流动API"""
-    prompt = (
+    base_prompt = (
         "请将以下单词表内容修正为标准格式，每行一个单词，格式如下：。\n"
         "每一行都由个元素组成，分别为：\n"
         "en：英文单词/词组/句子\n"
@@ -190,6 +202,16 @@ def call_qwen_api(content, api_key, model="Qwen/QwQ-32B", available_models=None)
         f"{content}\n"
         "请严格按照上述格式输出。**务必要输出5栏**，如果实在没有找到相关项，就用NULL代替！！！"
     )
+    
+    # 如果是错误处理阶段，添加额外提示
+    if is_error_processing:
+        prompt = (
+            f"{base_prompt}\n\n"
+            "重要提醒：该列表为处理错误的列表，可能缺少一列，请自动分割英文、中文、词性、类型与提示词。\n"
+            "**输出的列表一定有5列，即存在6个\"|\"**，请仔细检查确保每行都有正确的格式。"
+        )
+    else:
+        prompt = base_prompt
     
     max_retries = 5
     retry_delay = 10
@@ -287,6 +309,7 @@ def call_qwen_api(content, api_key, model="Qwen/QwQ-32B", available_models=None)
 def parse_fixed_content(content):
     """解析修正后的内容"""
     records = []
+    failed_items = []  # 存储解析失败的项
     lines = content.strip().split('\n')
     
     for line_num, line in enumerate(lines, 1):
@@ -315,10 +338,84 @@ def parse_fixed_content(content):
                 records.append(record)
             else:
                 print_warning(f"第{line_num}行字段不足，跳过: {line}")
+                failed_items.append(line)
+                log_error(f"字段不足: {line}")
         except Exception as e:
             print_warning(f"第{line_num}行解析失败: {line}, 错误: {e}")
+            failed_items.append(line)
+            log_error(f"解析失败: {line}, 错误: {e}")
     
-    return records
+    return records, failed_items
+
+def process_failed_items(failed_items, api_key, model, available_models, ai_subdir):
+    """处理解析失败的项"""
+    if not failed_items:
+        return []
+    
+    console.print(f"\n🔧 错误处理阶段 - 处理 {len(failed_items)} 个失败项")
+    processed_records = []
+    remaining_failed_items = failed_items.copy()
+    
+    # 使用除了当前主模型之外的其他模型进行轮询
+    other_models = [m for m in available_models if m != model] if available_models else []
+    
+    if not other_models:
+        print_warning("没有其他可用模型来处理错误项")
+        return []
+    
+    model_index = 0
+    round_num = 0
+    
+    # 不限制轮询次数，直到错误列表为空或所有模型都尝试过
+    while remaining_failed_items and other_models:
+        current_model = other_models[model_index % len(other_models)]
+        round_num += 1
+        console.print(f"\n🔄 错误处理轮次 {round_num} - 使用模型: {current_model}")
+        
+        # 将剩余的失败项组合成一个内容块
+        content_to_process = "\n".join(remaining_failed_items)
+        
+        # 调用AI处理，标记为错误处理阶段
+        fixed_content, _ = call_qwen_api(content_to_process, api_key, current_model, available_models, is_error_processing=True)
+        
+        if fixed_content is None:
+            print_warning(f"使用模型 {current_model} 处理失败项失败")
+            model_index += 1
+            
+            # 如果所有模型都尝试过了，跳出循环
+            if model_index >= len(other_models):
+                break
+            continue
+        
+        # 解析处理结果
+        records, newly_failed_items = parse_fixed_content(fixed_content)
+        processed_records.extend(records)
+        
+        # 更新剩余失败项
+        remaining_failed_items = newly_failed_items
+        model_index += 1
+        
+        console.print(f"✅ 本轮处理完成: 新增 {len(records)} 条记录, 剩余 {len(remaining_failed_items)} 项待处理")
+        
+        # 如果所有模型都尝试过了，重置索引以继续下一轮
+        if model_index >= len(other_models):
+            model_index = 0
+    
+    # 记录最终未能处理的项
+    if remaining_failed_items:
+        console.print(f"\n🗑️ 丢弃 {len(remaining_failed_items)} 个无法处理的项")
+        for item in remaining_failed_items:
+            log_error(f"丢弃无法处理的项: {item}")
+    
+    # 保存错误处理阶段的结果
+    if processed_records:
+        error_output_path = os.path.join(ai_subdir, "error_processed_records.txt")
+        with open(error_output_path, 'w', encoding='utf-8') as f:
+            for record in processed_records:
+                f.write(f"|{record['en']}|{record['zh']}|{record['pro'] or 'NULL'}|{record['type']}|{record['promt'] or 'NULL'}|\n")
+        console.print(f"💾 错误处理阶段结果保存至: {error_output_path}")
+    
+    return processed_records
 
 def process_single_letter(subdir, txt_file, ai_output_dir, api_key, model, available_models):
     """处理单个字母目录"""
@@ -346,7 +443,7 @@ def process_single_letter(subdir, txt_file, ai_output_dir, api_key, model, avail
             test_content = f.read(1000)  # 读取前1000个字符作为测试
         
         # 获取模型和块大小
-        fixed_content, chunk_size = call_qwen_api(test_content, api_key, model, available_models)
+        fixed_content, chunk_size = call_qwen_api(test_content, api_key, model, available_models, is_error_processing=False)
         if fixed_content is None:
             print_error(f"无法获取模型信息，使用默认块大小")
             chunk_size = 2*1024  # 默认2KB
@@ -372,8 +469,9 @@ def process_single_letter(subdir, txt_file, ai_output_dir, api_key, model, avail
                     except:
                         pass
         
-        # 收集所有记录
+        # 收集所有记录和失败项
         all_records = []
+        all_failed_items = []
         
         # 如果有已处理的块，加载它们的记录
         for chunk_idx in processed_chunks:
@@ -383,8 +481,9 @@ def process_single_letter(subdir, txt_file, ai_output_dir, api_key, model, avail
                     try:
                         with open(chunk_output_path, 'r', encoding='utf-8') as f:
                             fixed_content = f.read()
-                        records = parse_fixed_content(fixed_content)
+                        records, failed_items = parse_fixed_content(fixed_content)
                         all_records.extend(records)
+                        all_failed_items.extend(failed_items)
                         console.print(f"  🔄 恢复已处理块 {chunk_idx + 1}")
                     except Exception as e:
                         print_warning(f"恢复块 {chunk_idx + 1} 失败: {e}")
@@ -420,7 +519,7 @@ def process_single_letter(subdir, txt_file, ai_output_dir, api_key, model, avail
                 console.print(f"  📦 块 {i+1} 大小: {chunk_size_bytes} 字节")
                 
                 # 调用AI API处理
-                fixed_content, _ = call_qwen_api(chunk, api_key, model, available_models)
+                fixed_content, _ = call_qwen_api(chunk, api_key, model, available_models, is_error_processing=False)
                 if fixed_content is None:
                     print_error(f"AI处理块 {i+1} 失败")
                     return False
@@ -439,8 +538,9 @@ def process_single_letter(subdir, txt_file, ai_output_dir, api_key, model, avail
                 console.print(f"  💾 保存块 {i+1} 输出到: {chunk_output_path} ({output_size} 字节)")
                 
                 # 解析处理结果
-                records = parse_fixed_content(fixed_content)
+                records, failed_items = parse_fixed_content(fixed_content)
                 all_records.extend(records)
+                all_failed_items.extend(failed_items)
                 
                 completed_chunks += 1
                 
@@ -454,6 +554,11 @@ def process_single_letter(subdir, txt_file, ai_output_dir, api_key, model, avail
                 traceback.print_exc()
                 return False
         
+        # 处理失败项
+        if all_failed_items:
+            error_records = process_failed_items(all_failed_items, api_key, model, available_models, ai_subdir)
+            all_records.extend(error_records)
+        
         # 保存合并后的结果
         merged_output_path = os.path.join(ai_subdir, f'{subdir}.txt')
         with open(merged_output_path, 'w', encoding='utf-8') as f:
@@ -464,6 +569,10 @@ def process_single_letter(subdir, txt_file, ai_output_dir, api_key, model, avail
         if os.path.exists(merged_output_path):
             merged_size = os.path.getsize(merged_output_path)
             print_success(f"完成处理: {subdir} ({len(all_records)} 条记录)，结果保存至: {merged_output_path} ({merged_size} 字节)")
+            if all_failed_items:
+                console.print(f"  ⚠️  初次处理失败项: {len(all_failed_items)} 个")
+                if len([r for r in all_records if any(item in f"|{r['en']}|{r['zh']}|" for item in all_failed_items)]) > 0:
+                    console.print(f"  ✅ 错误处理阶段恢复: {len(error_records)} 条记录")
         else:
             print_error(f"完成处理: {subdir} ({len(all_records)} 条记录)，但合并文件未正确生成: {merged_output_path}")
         

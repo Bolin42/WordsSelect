@@ -222,6 +222,7 @@ def batch_process_json_to_txt(json_dir='json', txt_dir='txt', only_letter=None):
         sub_txt_dir = os.path.join(txt_dir, subdir)
         if not os.path.exists(sub_txt_dir):
             os.makedirs(sub_txt_dir)
+<<<<<<< HEAD
         
         # 修复：递归查找所有JSON文件，处理嵌套目录结构
         json_files = []
@@ -254,10 +255,20 @@ def batch_process_json_to_txt(json_dir='json', txt_dir='txt', only_letter=None):
                 
             process_single_json(json_path, txt_path)
         
+=======
+        files = [f for f in os.listdir(sub_json_dir) if f.endswith('.json')]
+        files.sort(key=lambda x: int(os.path.splitext(x)[0]) if os.path.splitext(x)[0].isdigit() else x)
+        print(f"处理 {subdir} 文件夹下 {len(files)} 个JSON文件...")
+        for fname in files:
+            json_path = os.path.join(sub_json_dir, fname)
+            txt_path = os.path.join(sub_txt_dir, os.path.splitext(fname)[0] + '.txt')
+            process_single_json(json_path, txt_path)
+>>>>>>> 8e7781ddd5932940ce6300496ab4a8827ce32409
         # 合并该首字母下所有txt为 result/首字母/首字母.txt
         result_dir = os.path.join('result', subdir)
         if not os.path.exists(result_dir):
             os.makedirs(result_dir)
+<<<<<<< HEAD
         
         # 递归查找所有txt文件
         txt_files = []
@@ -275,6 +286,17 @@ def batch_process_json_to_txt(json_dir='json', txt_dir='txt', only_letter=None):
                     if content:  # 只写入非空内容
                         outfile.write(content)
                         outfile.write('\n')
+=======
+        txt_files = [f for f in os.listdir(sub_txt_dir) if f.endswith('.txt')]
+        txt_files.sort(key=lambda x: int(os.path.splitext(x)[0]) if os.path.splitext(x)[0].isdigit() else x)
+        merged_path = os.path.join(result_dir, f'{subdir}.txt')
+        with open(merged_path, 'w', encoding='utf-8') as outfile:
+            for fname in txt_files:
+                file_path = os.path.join(sub_txt_dir, fname)
+                with open(file_path, 'r', encoding='utf-8') as infile:
+                    outfile.write(infile.read())
+                    outfile.write('\n')
+>>>>>>> 8e7781ddd5932940ce6300496ab4a8827ce32409
         print(f"✅ 已合并 {len(txt_files)} 个txt文件到: {merged_path}")
 
 if __name__ == '__main__':

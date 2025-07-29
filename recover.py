@@ -15,6 +15,7 @@ MODEL = "deepseek/deepseek-v3-base:free"
 
 def call_deepseek_api(content):
     prompt = (
+<<<<<<< HEAD
         "请将以下单词表内容修正为标准格式，每行一个单词，格式如下：。\n"
         "每一行都由个元素组成，分别为：\n"
         "en：英文单词/词组/句子\n"
@@ -39,6 +40,14 @@ def call_deepseek_api(content):
         "|As we get older, we often find it difficult to understand music.|年龄增长时，我们常常发现难以理解音乐。|NULL|1|understand|\n"
         "如果有多词性或多义项，请分多行输出。不要输出多余解释和说明，只输出修正后的内容。\n"
         "每一列由"|"分割，"|"与内容之间不要添加空格\n"
+=======
+        "请将以下单词表内容修正为标准格式，每行一个单词，格式为：英文 词性. 中文。"
+        "如果原始内容有格式错误、缺失、顺序混乱、缺少词性等，请自动补全和修正。"
+        "示例：\n"
+        "abandon vt. 放弃\n"
+        "ability n. 能力\n"
+        "如果有多词性或多义项，请分多行输出。不要输出多余解释和说明，只输出修正后的内容。\n"
+>>>>>>> 8e7781ddd5932940ce6300496ab4a8827ce32409
         "原始内容如下：\n"
         f"{content}\n"
         "请严格按照上述格式输出。"
