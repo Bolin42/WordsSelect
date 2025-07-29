@@ -222,26 +222,59 @@ def batch_process_json_to_txt(json_dir='json', txt_dir='txt', only_letter=None):
         sub_txt_dir = os.path.join(txt_dir, subdir)
         if not os.path.exists(sub_txt_dir):
             os.makedirs(sub_txt_dir)
-        files = [f for f in os.listdir(sub_json_dir) if f.endswith('.json')]
-        files.sort(key=lambda x: int(os.path.splitext(x)[0]) if os.path.splitext(x)[0].isdigit() else x)
-        print(f"处理 {subdir} 文件夹下 {len(files)} 个JSON文件...")
-        for fname in files:
-            json_path = os.path.join(sub_json_dir, fname)
-            txt_path = os.path.join(sub_txt_dir, os.path.splitext(fname)[0] + '.txt')
+        
+        # 修复：递归查找所有JSON文件，处理嵌套目录结构
+        json_files = []
+        for root, dirs, files in os.walk(sub_json_dir):
+            for file in files:
+                if file.endswith('.json'):
+                    json_files.append(os.path.join(root, file))
+        
+        # 按文件名排序
+        json_files.sort(key=lambda x: (
+            os.path.dirname(x), 
+            int(os.path.splitext(os.path.basename(x))[0]) if os.path.splitext(os.path.basename(x))[0].isdigit() else os.path.basename(x)
+        ))
+        
+        if not json_files:
+            print(f"警告: {subdir} 文件夹下未找到JSON文件")
+            continue
+            
+        print(f"处理 {subdir} 文件夹下 {len(json_files)} 个JSON文件...")
+        for i, json_path in enumerate(json_files):
+            # 生成对应的txt文件名
+            relative_path = os.path.relpath(json_path, sub_json_dir)
+            txt_filename = os.path.splitext(relative_path)[0] + '.txt'
+            txt_path = os.path.join(sub_txt_dir, txt_filename)
+            
+            # 确保txt文件的目录存在
+            txt_path_dir = os.path.dirname(txt_path)
+            if not os.path.exists(txt_path_dir):
+                os.makedirs(txt_path_dir)
+                
             process_single_json(json_path, txt_path)
+        
         # 合并该首字母下所有txt为 result/首字母/首字母.txt
         result_dir = os.path.join('result', subdir)
         if not os.path.exists(result_dir):
             os.makedirs(result_dir)
-        txt_files = [f for f in os.listdir(sub_txt_dir) if f.endswith('.txt')]
-        txt_files.sort(key=lambda x: int(os.path.splitext(x)[0]) if os.path.splitext(x)[0].isdigit() else x)
+        
+        # 递归查找所有txt文件
+        txt_files = []
+        for root, dirs, files in os.walk(sub_txt_dir):
+            for file in files:
+                if file.endswith('.txt'):
+                    txt_files.append(os.path.join(root, file))
+        
+        txt_files.sort()
         merged_path = os.path.join(result_dir, f'{subdir}.txt')
         with open(merged_path, 'w', encoding='utf-8') as outfile:
-            for fname in txt_files:
-                file_path = os.path.join(sub_txt_dir, fname)
-                with open(file_path, 'r', encoding='utf-8') as infile:
-                    outfile.write(infile.read())
-                    outfile.write('\n')
+            for txt_file in txt_files:
+                with open(txt_file, 'r', encoding='utf-8') as infile:
+                    content = infile.read()
+                    if content:  # 只写入非空内容
+                        outfile.write(content)
+                        outfile.write('\n')
         print(f"✅ 已合并 {len(txt_files)} 个txt文件到: {merged_path}")
 
 if __name__ == '__main__':

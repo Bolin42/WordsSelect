@@ -106,9 +106,21 @@ def get_done_letters(result_dir='result'):
         sub_path = os.path.join(result_dir, subdir)
         if os.path.isdir(sub_path):
             target_file = os.path.join(sub_path, f'{subdir}.txt')
-            if os.path.exists(target_file):
+            # 检查文件是否存在且非空
+            if os.path.exists(target_file) and os.path.getsize(target_file) > 0:
                 done_letters.add(subdir)
     return done_letters
+
+def get_json_processed_letters(json_dir='json'):
+    """获取json目录中已有内容的字母文件夹"""
+    processed_letters = set()
+    for subdir in os.listdir(json_dir):
+        sub_path = os.path.join(json_dir, subdir)
+        if os.path.isdir(sub_path):
+            # 检查文件夹是否非空
+            if any(os.path.isfile(os.path.join(sub_path, f)) for f in os.listdir(sub_path)):
+                processed_letters.add(subdir)
+    return processed_letters
 
 
 def run_llm_txt_to_db(txt_path, db_path, api_key, table='words'):
@@ -140,6 +152,18 @@ def main():
     # 传统OCR分支
     done_letters = get_done_letters('result')
     console.print(f"[bold blue]已完成的首字母: {sorted(done_letters)}[/bold blue]")
+    
+    # 获取json目录中已有内容的字母文件夹
+    json_processed_letters = get_json_processed_letters('json')
+    if json_processed_letters:
+        console.print(f"[bold yellow]检测到JSON目录中已有内容的首字母: {sorted(json_processed_letters)}[/bold yellow]")
+        # 只有当result目录中没有对应完成文件时，才将这些字母加入跳过列表
+        for letter in json_processed_letters:
+            result_letter_file = os.path.join('result', letter, f'{letter}.txt')
+            # 如果result中没有对应文件或者文件为空，则跳过
+            if not (os.path.exists(result_letter_file) and os.path.getsize(result_letter_file) > 0):
+                done_letters.add(letter)
+                console.print(f"[bold yellow]添加 {letter} 到跳过列表 (JSON已完成但result未完成)[/bold yellow]")
 
     input_dir = "input"
     processed_dir = "processed"
@@ -160,27 +184,21 @@ def main():
         except Exception as e:
             console.print(f":x: [red]图片预处理失败: {subdir}，原因: {e}[/red]")
 
-    # 步骤2: OCR识别（并发3）
-    console.rule("[bold magenta]步骤2: OCR识别（并发3）")
+    # 步骤2: OCR识别（单线程）
+    console.rule("[bold magenta]步骤2: OCR识别")
     need_ocr = [subdir for subdir in os.listdir(processed_dir) if subdir not in done_letters]
-    def ocr_worker(subdir):
-        try:
-            ocr = AliyunOCRBatch()
-            ocr.batch_recognize(os.path.join(processed_dir, subdir), os.path.join(json_dir, subdir))
-            return (subdir, True, None)
-        except Exception as e:
-            return (subdir, False, str(e))
+    
+    # 使用单线程处理OCR识别，避免信号处理问题
     with Progress(SpinnerColumn(), TextColumn("{task.description}"), BarColumn(), transient=True) as progress:
         task = progress.add_task("OCR识别中...", total=len(need_ocr))
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            futures = {executor.submit(ocr_worker, subdir): subdir for subdir in need_ocr}
-            for fut in as_completed(futures):
-                subdir, ok, err = fut.result()
-                if ok:
-                    console.print(f":sparkles: 完成OCR识别: {subdir}")
-                else:
-                    console.print(f":x: [red]OCR识别失败: {subdir}，原因: {err}[/red]")
-                progress.advance(task)
+        for subdir in need_ocr:
+            try:
+                ocr = AliyunOCRBatch()
+                ocr.batch_recognize(os.path.join(processed_dir, subdir), os.path.join(json_dir, subdir))
+                console.print(f":sparkles: 完成OCR识别: {subdir}")
+            except Exception as e:
+                console.print(f":x: [red]OCR识别失败: {subdir}，原因: {e}[/red]")
+            progress.advance(task)
 
     # 步骤3: JSON转TXT
     console.rule("[bold magenta]步骤3: JSON转TXT")
@@ -207,13 +225,16 @@ def main():
                 os.makedirs(sub_result_dir)
             txt_files = [f for f in os.listdir(sub_txt_dir) if f.endswith('.txt')]
             txt_files.sort(key=lambda x: int(os.path.splitext(x)[0]) if os.path.splitext(x)[0].isdigit() else x)
+            # 修复：正确合并txt文件到subdir.txt而不是merged.txt
             merged_path = os.path.join(sub_result_dir, f'{subdir}.txt')
             with open(merged_path, 'w', encoding='utf-8') as outfile:
                 for fname in txt_files:
                     file_path = os.path.join(sub_txt_dir, fname)
                     with open(file_path, 'r', encoding='utf-8') as infile:
-                        outfile.write(infile.read())
-                        outfile.write('\n')
+                        content = infile.read()
+                        if content:  # 只有当内容非空时才写入
+                            outfile.write(content)
+                            outfile.write('\n')
             console.print(f":sparkles: 合并TXT完成: {merged_path}")
         except Exception as e:
             console.print(f":x: [red]TXT合并失败: {subdir}，原因: {e}[/red]")

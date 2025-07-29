@@ -102,13 +102,22 @@ def process_images(input_dir, output_dir, y1, y2, x1, x2, first_page_type='odd')
     
     # 获取所有子文件夹，按逆序排序
     subdirs = []
+    direct_files = []  # 直接放在input_dir下的文件
+    
+    # 区分文件和文件夹
     for item in os.listdir(input_dir):
         item_path = os.path.join(input_dir, item)
         if os.path.isdir(item_path):
             subdirs.append(item)
+        elif os.path.isfile(item_path) and item.lower().endswith('.jpg'):
+            direct_files.append(item)
     
     subdirs.sort(reverse=True)  # 逆序排序
     logging.info(f"找到 {len(subdirs)} 个子文件夹，按逆序排序: {subdirs}")
+    
+    # 如果有直接放在input_dir下的文件，则也作为一个处理单元
+    if direct_files:
+        logging.info(f"发现 {len(direct_files)} 个直接放在 {input_dir} 下的文件")
     
     # 为每个文件夹确定页面类型
     folder_page_types = {}
@@ -123,19 +132,40 @@ def process_images(input_dir, output_dir, y1, y2, x1, x2, first_page_type='odd')
             folder_page_types[subdir] = page_type
             print(f"✅ {subdir} 文件夹设置为: {page_type} 页面")
     
+    # 如果有直接文件，询问页面类型
+    if direct_files:
+        # 获取第一个文件作为示例
+        sample_file = direct_files[0]
+        sample_file_path = os.path.join(input_dir, sample_file)
+        page_type = ask_page_type_for_folder(os.path.basename(input_dir), sample_file_path)
+        folder_page_types[os.path.basename(input_dir)] = page_type
+        print(f"✅ {os.path.basename(input_dir)} 目录设置为: {page_type} 页面")
+        # 将直接文件也作为一个"子文件夹"处理
+        subdirs.append(os.path.basename(input_dir))
+    
     # 统计总文件数
     total_files = 0
     for subdir in subdirs:
-        subdir_path = os.path.join(input_dir, subdir)
-        files = [f for f in os.listdir(subdir_path) if f.lower().endswith('.jpg')]
-        total_files += len(files)
+        if subdir == os.path.basename(input_dir) and direct_files:
+            # 直接文件
+            total_files += len(direct_files)
+        else:
+            # 子文件夹中的文件
+            subdir_path = os.path.join(input_dir, subdir)
+            files = [f for f in os.listdir(subdir_path) if f.lower().endswith('.jpg')]
+            total_files += len(files)
     
     logging.info(f"共检测到 {total_files} 个jpg文件，开始处理...")
     
     # 按文件夹分组处理文件
     for subdir in subdirs:
-        subdir_path = os.path.join(input_dir, subdir)
-        files = [f for f in os.listdir(subdir_path) if f.lower().endswith('.jpg')]
+        # 处理直接文件的特殊情况
+        if subdir == os.path.basename(input_dir) and direct_files:
+            subdir_path = input_dir  # 直接文件在input_dir下
+            files = direct_files
+        else:
+            subdir_path = os.path.join(input_dir, subdir)
+            files = [f for f in os.listdir(subdir_path) if f.lower().endswith('.jpg')]
         
         if not files:
             continue
