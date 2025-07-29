@@ -2,7 +2,6 @@
 
 > 一站式从图片到单词表、数据库、练习文档的全流程自动化工具箱
 
-<<<<<<< HEAD
 ![版本](https://img.shields.io/badge/版本-1.0.0-blue)
 ![Python](https://img.shields.io/badge/Python-3.8+-green)
 ![许可证](https://img.shields.io/badge/许可证-MIT-orange)
@@ -27,7 +26,6 @@ WordsSelect 是一个集图片批量处理、OCR识别、单词结构化提取�
 WordsSelect 是一个集图片批量处理、OCR识别、单词结构化提取、AI自动修正、格式化导出、单词练习表生成于一体的高效工具集。适用于英语学习、单词整理、教材数字化等多场景。
 
 ---
->>>>>>> 8e7781ddd5932940ce6300496ab4a8827ce32409
 
 ## 📂 目录结构
 
@@ -57,7 +55,6 @@ WordsSelect/
 └── README.md                # 说明文档
 ```
 
-<<<<<<< HEAD
 ## 🚀 使用流程
 
 ### 📋 AI智能模式（推荐，适合大样本批量处理）
