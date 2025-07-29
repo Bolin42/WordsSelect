@@ -130,10 +130,10 @@ python ai_processor.py
 #### 7️⃣ 运行数据库写入程序
 
 ```bash
-python txt_to_excel_and_db.py --input result --excel words.xlsx --db words.db
+python db_extractor.py
 ```
 
-这将把处理后的txt文件导出为Excel表格和SQLite数据库。
+这将把处理后的txt文件导出为SQLite数据库。
 
 #### 8️⃣ 生成练习纸（可选）
 
