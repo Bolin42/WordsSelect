@@ -2,13 +2,22 @@
 
 > 一站式从图片到单词表、数据库、练习文档的全流程自动化工具箱
 
----
+![版本](https://img.shields.io/badge/版本-1.0.0-blue)
+![Python](https://img.shields.io/badge/Python-3.8+-green)
+![许可证](https://img.shields.io/badge/许可证-MIT-orange)
 
-## 🌟 项目简介
+## 📚 项目简介
 
 WordsSelect 是一个集图片批量处理、OCR识别、单词结构化提取、AI自动修正、格式化导出、单词练习表生成于一体的高效工具集。适用于英语学习、单词整理、教材数字化等多场景。
 
----
+## 🔍 功能特点
+
+- **批量OCR识别**：利用阿里云OCR API自动识别扫描图片中的文本
+- **智能分类整理**：按首字母自动分类存储
+- **AI智能修正**：接入免费大模型自动修正OCR识别错误
+- **结构化导出**：支持Excel、SQLite数据库等多种格式
+- **练习表生成**：自动生成美观的单词练习表和答案表
+- **全流程自动化**：从图片到练习表一站式解决方案
 
 ## 📂 目录结构
 
@@ -25,6 +34,7 @@ WordsSelect/
 ├── ocr_alicloud.py          # 阿里云OCR批量识别
 ├── formatter.py             # JSON转txt格式化
 ├── extract_words.py         # 复杂单词提取
+├── ai_processor.py          # AI智能处理
 ├── txt_to_excel_and_db.py   # txt批量导出Excel/DB
 ├── word_practice.py         # 单词练习表生成
 ├── recover.py               # AI自动修正单词表
@@ -34,73 +44,169 @@ WordsSelect/
 └── README.md                # 说明文档
 ```
 
----
+## 🚀 使用流程
 
-## 🚀 全流程使用教程
+### 📋 AI智能模式（推荐，适合大样本批量处理）
 
-### 1. 环境准备
+> ⚠️ **注意**：AI智能模式配置过程相对繁琐，但处理效率高。智能处理可能导致一些字段丢失，请注意核对。
+
+#### 1️⃣ 配置阿里云OCR API
+
+1. 注册[阿里云账号](https://www.aliyun.com/)并开通OCR服务
+2. 获取AccessKey ID和AccessKey Secret
+3. 配置环境变量或在代码中直接设置密钥
 
 ```bash
-pip install -r requirements.txt
-# 若需AI修正，额外安装
-pip install requests python-dotenv
+# 在系统中设置环境变量
+export ALIBABA_CLOUD_ACCESS_KEY_ID="your_access_key_id"
+export ALIBABA_CLOUD_ACCESS_KEY_SECRET="your_access_key_secret"
 ```
 
-### 2. 图片准备
-- 将待处理的扫描图片按首字母分文件夹放入 `input/` 目录。
+> ⚠️ **重要提示**：阿里云OCR每月有200次免费额度，超出需付费。具体政策请以阿里云官方最新说明为准。
 
-### 3. 图片预处理
+#### 2️⃣ 自动裁剪偏移量设置
+
+在`image_process.py`文件中，找到以下参数并根据实际情况调整：
+
+```python
+# 双栏分割参数
+y1 = 100  # 上边界裁剪
+y2 = 1800  # 下边界裁剪
+x1 = 100  # 左栏右边界
+x2 = 1100  # 右栏左边界
+```
+
+#### 3️⃣ 扫描内容准备
+
+1. 扫描词汇书页面，确保清晰可辨
+2. 按照单词首字母创建子文件夹，例如：
+   ```
+   input/
+   ├── a/
+   │   ├── page1.jpg
+   │   ├── page2.jpg
+   │   └── ...
+   ├── b/
+   │   ├── page1.jpg
+   │   └── ...
+   └── ...
+   ```
+
+#### 4️⃣ 运行主程序
+
 ```bash
 python main.py
 ```
-- 按提示完成图片裁剪、拼接、奇偶页选择。
-- 自动完成图片数量校验、OCR识别、JSON转txt、合并txt。
 
-### 4. AI自动修正（可选，强烈推荐）
-- 需注册 [OpenRouter](https://openrouter.ai/) 并获取免费API Key。
-- 在根目录新建 `.env` 文件，内容如下：
-  ```
-  OPENROUTER_API_KEY=sk-xxxxxxx
-  ```
-- 运行：
-  ```bash
-  python recover.py
-  ```
-- 自动遍历 `result/` 下所有txt，修正为标准格式（英文 词性. 中文），适配后续导出。
+按照提示输入首页是奇数页还是偶数页，程序会自动处理图片、进行OCR识别、转换格式并合并结果。
 
-### 5. txt批量导出Excel/数据库
+#### 5️⃣ 配置AI处理环境
+
+1. 创建`.env`文件，添加硅基流动API密钥：
+   ```
+   SILICONFLOW_API_KEY=your_api_key_here
+   ```
+
+2. 确保已安装必要的依赖：
+   ```bash
+   pip install requests python-dotenv rich
+   ```
+
+#### 6️⃣ 运行AI处理程序
+
+```bash
+python ai_processor.py
+```
+
+程序会自动遍历`result/`目录下的所有txt文件，使用AI模型进行智能处理和格式化。
+
+#### 7️⃣ 运行数据库写入程序
+
 ```bash
 python txt_to_excel_and_db.py --input result --excel words.xlsx --db words.db
 ```
-- 支持自动去重、分组、格式增强。
-- 生成 `words.xlsx`（多sheet）和 `words.db`（多表）。
 
-### 6. 单词练习表生成
+这将把处理后的txt文件导出为Excel表格和SQLite数据库。
+
+#### 8️⃣ 生成练习纸（可选）
+
 ```bash
-python word_practice.py --db word_h_l.db --letter h l k --mode chinese
+python word_practice.py --db words.db --letter a b c --mode chinese english --count 20
 ```
-- 支持多种模式，输出美观的四列表格（序号/英文/词性/中文+提示）。
-- 会自动生成 `<letter>_<mode>.docx` 和 `<letter>_key.docx` 文件。
 
-#### 参数说明
-| 参数         | 说明                                                                                 |
-|--------------|--------------------------------------------------------------------------------------|
-| --db         | 必填，指定sqlite数据库文件路径。                                                     |
-| --letter     | 必填，支持一个或多个首字母（如 a b c），批量生成多组练习表。                         |
-| --count      | 可选，抽取数量，-1为全部（默认10）。                                                 |
-| --mode       | 可选，生成模式，支持 chinese/english/both，可多选（如 --mode chinese english）。      |
-| --output     | 可选，输出文件名列表，若不指定则自动按 <letter>_<mode>.docx 命名。                   |
+生成指定字母的单词练习表和答案表。
 
-- 每个首字母的填词表和答案表用同一随机序列，但不同首字母之间随机序列独立。
-- 填词表（mode=chinese）英文列为等长空格，中文列为“中文+提示词”；key答案表只显示真实英文和中文。
+### 📝 人工模式（适合小样本处理）
 
-**示例：**
-```bash
-python word_practice.py --db word_h_l.db --letter h l --mode chinese english
+对于小样本数据，可以使用原README中描述的人工模式进行处理，步骤相对简化。详情请参考原文档中的相关说明。
+
+## ⚙️ 需要手动配置的参数
+
+1. **阿里云OCR配置**
+   - 文件：根目录环境变量或代码中
+   - 参数：`ALIBABA_CLOUD_ACCESS_KEY_ID`和`ALIBABA_CLOUD_ACCESS_KEY_SECRET`
+
+2. **图片裁剪参数**
+   - 文件：`image_process.py`
+   - 参数：`y1`, `y2`, `x1`, `x2`
+
+3. **硅基流动API密钥**
+   - 文件：`.env`
+   - 参数：`SILICONFLOW_API_KEY`
+
+4. **AI模型选择**
+   - 文件：`ai_processor.py`
+   - 参数：`MODELS`列表
+
+## 📋 使用限制与注意事项
+
+1. **双栏词汇书要求**：
+   - 本脚本默认处理**一页双栏**的词汇书
+   - 栏与栏之间需有明显的竖直直线分割
+   - 如需处理单栏词汇书，请修改代码中的双栏分割逻辑
+
+2. **OCR限制**：
+   - 阿里云OCR每月有200次免费额度，超出需付费
+   - 识别质量受原始图片清晰度影响
+
+3. **AI处理**：
+   - `ai_processor.py`中的模型列表为免费大模型
+   - 模型可用性可能随时间变化，请根据实际情况调整
+
+## 🔄 处理流程图
+
 ```
-会生成：
-- h_chinese.docx, h_english.docx, h_key.docx
-- l_chinese.docx, l_english.docx, l_key.docx
+扫描图片 → 按首字母分类 → 图片预处理 → OCR识别 → JSON转TXT
+    → 合并TXT → AI智能处理 → 导出Excel/DB → 生成练习表
+```
 
-### 7. 其他批量清理工具
-- `
+## ❓ 常见问题
+
+1. **OCR识别质量不佳怎么办？**
+   - 确保原始图片清晰、对比度适中
+   - 调整裁剪参数，避免裁剪到文字区域
+   - 考虑使用其他OCR服务或手动校对
+
+2. **AI处理失败怎么办？**
+   - 检查API密钥是否正确
+   - 确认所选模型是否可用
+   - 尝试减小处理批次，分多次处理
+
+3. **如何处理单栏词汇书？**
+   - 修改`image_process.py`中的双栏分割逻辑，删除相关代码
+
+## ⚠️ 免责声明
+
+1. 本项目仅供学习和研究使用，请勿用于商业目的。
+2. 阿里云OCR服务的免费额度和计费标准可能发生变化，使用前请核实最新政策。
+3. AI处理脚本中的模型列表截至2025年7月29日有效，使用时请确认模型可用性。
+4. 使用本工具处理的内容可能存在错误，请用户自行核对结果的准确性。
+5. 本项目开发者不对因使用本工具导致的任何直接或间接损失负责。
+
+## 📜 许可证
+
+本项目采用MIT许可证。详情请参阅LICENSE文件。
+
+---
+
+**最后更新日期**：2025年7月29日
